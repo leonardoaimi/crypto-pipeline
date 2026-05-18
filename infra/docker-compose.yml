@@ -142,12 +142,11 @@ services:
   # Ingestion service
   # DATA_SOURCE=live      → binance_consumer.py
   # DATA_SOURCE=synthetic → synthetic_consumer.py
-  # Dockerfile created in Phase 2 — placeholder image used until then.
   # ────────────────────────────────────────────────────────────
   ingestion:
-    image: python:3.11-slim  # Phase 2: replace with build: context: ../ingestion
-    command: >
-      sh -c "echo 'Ingestion service stub — implement in Phase 2' && sleep infinity"
+    build:
+      context: ..
+      dockerfile: Dockerfile
     environment:
       DATA_SOURCE: ${DATA_SOURCE}
       KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
