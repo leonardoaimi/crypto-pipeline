@@ -1,0 +1,245 @@
+version: "3.9"
+
+# All credentials sourced from ../.env (project root).
+# Run all docker-compose commands from the project root:
+#   docker-compose -f infra/docker-compose.yml <command>
+#
+# Dashboard profiles: set COMPOSE_PROFILES=grafana|streamlit|evidence in .env.
+# The matching service starts; the others are skipped.
+
+services:
+
+  # ────────────────────────────────────────────────────────────
+  # Zookeeper
+  # ────────────────────────────────────────────────────────────
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    volumes:
+      - zookeeper-data:/var/lib/zookeeper/data
+      - zookeeper-log:/var/lib/zookeeper/log
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "2181"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ────────────────────────────────────────────────────────────
+  # Kafka
+  # ────────────────────────────────────────────────────────────
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+    ports:
+      - "29092:29092"
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+  # ────────────────────────────────────────────────────────────
+  # Kafka topic initialiser (one-shot)
+  # ────────────────────────────────────────────────────────────
+  kafka-init:
+    image: confluentinc/cp-kafka:7.5.0
+    depends_on:
+      kafka:
+        condition: service_healthy
+    volumes:
+      - ./kafka/setup_topics.sh:/setup_topics.sh:ro
+    entrypoint: ["/bin/bash", "/setup_topics.sh"]
+    restart: "no"
+
+  # ────────────────────────────────────────────────────────────
+  # PostgreSQL 15
+  # ────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # ────────────────────────────────────────────────────────────
+  # Spark master
+  # ────────────────────────────────────────────────────────────
+  spark-master:
+    image: bitnami/spark:3.5
+    environment:
+      SPARK_MODE: master
+      SPARK_MASTER_HOST: spark-master
+      SPARK_RPC_AUTHENTICATION_ENABLED: "no"
+      SPARK_RPC_ENCRYPTION_ENABLED: "no"
+      SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED: "no"
+      SPARK_SSL_ENABLED: "no"
+    ports:
+      - "8080:8080"
+      - "7077:7077"
+    volumes:
+      - spark-logs:/opt/bitnami/spark/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+  # ────────────────────────────────────────────────────────────
+  # Spark worker
+  # ────────────────────────────────────────────────────────────
+  spark-worker:
+    image: bitnami/spark:3.5
+    environment:
+      SPARK_MODE: worker
+      SPARK_MASTER_URL: spark://spark-master:7077
+      SPARK_WORKER_MEMORY: 2G
+      SPARK_WORKER_CORES: 2
+      SPARK_RPC_AUTHENTICATION_ENABLED: "no"
+      SPARK_RPC_ENCRYPTION_ENABLED: "no"
+      SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED: "no"
+      SPARK_SSL_ENABLED: "no"
+    depends_on:
+      spark-master:
+        condition: service_healthy
+    volumes:
+      - spark-logs:/opt/bitnami/spark/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+  # ────────────────────────────────────────────────────────────
+  # Ingestion service
+  # DATA_SOURCE=live      → binance_consumer.py
+  # DATA_SOURCE=synthetic → synthetic_consumer.py
+  # Dockerfile created in Phase 2 — placeholder image used until then.
+  # ────────────────────────────────────────────────────────────
+  ingestion:
+    image: python:3.11-slim  # Phase 2: replace with build: context: ../ingestion
+    command: >
+      sh -c "echo 'Ingestion service stub — implement in Phase 2' && sleep infinity"
+    environment:
+      DATA_SOURCE: ${DATA_SOURCE}
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_PORT: ${POSTGRES_PORT}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    depends_on:
+      kafka:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "echo", "ok"]
+      interval: 30s
+      timeout: 5s
+      retries: 1
+
+  # ────────────────────────────────────────────────────────────
+  # Dashboard services — activated by COMPOSE_PROFILES in .env
+  # Only one runs at a time. All three require Phase 7.
+  # ────────────────────────────────────────────────────────────
+
+  grafana:
+    image: grafana/grafana:10.2.0
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GF_SECURITY_ADMIN_USER}
+      GF_SECURITY_ADMIN_PASSWORD: ${GF_SECURITY_ADMIN_PASSWORD}
+      GF_SERVER_HTTP_PORT: ${GF_SERVER_HTTP_PORT:-3000}
+    ports:
+      - "${GF_SERVER_HTTP_PORT:-3000}:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ../dashboard/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+    profiles: ["grafana"]
+
+  streamlit:
+    image: python:3.11-slim  # Phase 7: replace with build: context: ../dashboard/streamlit
+    command: >
+      sh -c "echo 'Streamlit dashboard stub — implement in Phase 7' && sleep infinity"
+    environment:
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_PORT: ${POSTGRES_PORT}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "8501:8501"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "echo", "ok"]
+      interval: 30s
+      timeout: 5s
+      retries: 1
+    profiles: ["streamlit"]
+
+  evidence:
+    image: node:20-slim  # Phase 7: replace with build: context: ../dashboard/evidence
+    command: >
+      sh -c "echo 'Evidence dashboard stub — implement in Phase 7' && sleep infinity"
+    environment:
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_PORT: ${POSTGRES_PORT}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "3001:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "echo", "ok"]
+      interval: 30s
+      timeout: 5s
+      retries: 1
+    profiles: ["evidence"]
+
+volumes:
+  zookeeper-data:
+  zookeeper-log:
+  kafka-data:
+  postgres-data:
+  spark-logs:
+  grafana-data:
