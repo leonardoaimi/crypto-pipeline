@@ -1,0 +1,1 @@
+-- stg_trades: type-cast and rename raw trades; 1:1 with source, no joins

@@ -1,0 +1,1 @@
+-- mart_asset_volatility: 30-day rolling volatility per symbol; one row per (symbol, date)

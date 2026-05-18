@@ -1,0 +1,1 @@
+-- stg_tickers: type-cast 24h ticker snapshots; 1:1 with source, no joins

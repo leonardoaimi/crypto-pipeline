@@ -1,0 +1,6 @@
+{
+  "__comment": "Grafana dashboard placeholder — implement in Phase 7",
+  "title": "Crypto Pipeline Overview",
+  "uid": "crypto-overview",
+  "panels": []
+}
