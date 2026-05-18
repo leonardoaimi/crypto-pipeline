@@ -1,0 +1,1 @@
+-- int_trade_buckets: trades bucketed into 1m, 5m, and 1h intervals for mart aggregation

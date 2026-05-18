@@ -1,0 +1,1 @@
+-- mart_trade_activity: trade count and notional volume per symbol per interval; one row per (symbol, bucket)

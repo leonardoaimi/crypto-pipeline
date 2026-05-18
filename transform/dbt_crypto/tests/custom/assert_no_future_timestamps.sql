@@ -1,0 +1,1 @@
+-- assert_no_future_timestamps: returns rows where trade_timestamp > current_timestamp (should return 0 rows)

@@ -1,0 +1,1 @@
+-- assert_ohlcv_high_gte_low: returns rows where high < low (should return 0 rows)

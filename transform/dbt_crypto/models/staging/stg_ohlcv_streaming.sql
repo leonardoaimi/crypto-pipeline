@@ -1,0 +1,1 @@
+-- stg_ohlcv_streaming: type-cast streaming-derived OHLCV; 1:1 with source

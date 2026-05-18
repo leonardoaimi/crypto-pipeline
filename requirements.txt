@@ -1,0 +1,22 @@
+# Ingestion
+websockets>=12.0
+httpx>=0.27.0
+pydantic>=2.7.0
+kafka-python>=2.0.2
+pyyaml>=6.0.1
+
+# Processing
+pyspark==3.5.3
+
+# dbt
+dbt-postgres>=1.8.0
+
+# Testing
+pytest>=8.2.0
+pytest-asyncio>=0.23.7
+
+# Dev / linting
+black>=24.4.0
+flake8>=7.1.0
+sqlfluff>=3.1.0
+pre-commit>=3.7.0

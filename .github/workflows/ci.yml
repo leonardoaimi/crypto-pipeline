@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - dev
+      - main
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install lint dependencies
+        run: pip install black flake8 sqlfluff
+
+      - name: black
+        run: black --check .
+
+      - name: flake8
+        run: flake8 .
+
+      - name: sqlfluff
+        run: sqlfluff lint transform/ --dialect postgres
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: pytest
+        run: pytest tests/ -v

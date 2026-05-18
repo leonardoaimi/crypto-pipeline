@@ -1,0 +1,26 @@
+exchange:
+  name: binance
+  websocket_base: wss://stream.binance.com:9443/ws
+  rest_base: https://api.binance.com/api/v3
+
+symbols:
+  - BTCUSDT
+  - ETHUSDT
+  - BNBUSDT
+  - SOLUSDT
+  - ADAUSDT
+
+intervals:
+  streaming: ["1m", "5m"]
+  historical: ["1h", "4h", "1d"]
+
+backfill:
+  days: 90
+
+spark:
+  streaming_trigger_interval: "10 seconds"
+  watermark_threshold: "30 seconds"
+  sliding_window_duration: "10 minutes"
+  sliding_window_slide: "1 minute"
+
+data_source: live  # live | synthetic

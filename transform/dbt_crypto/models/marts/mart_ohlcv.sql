@@ -1,0 +1,1 @@
+-- mart_ohlcv: analytics-ready OHLCV bars; one row per (symbol, interval, open_time)

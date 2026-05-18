@@ -1,0 +1,1 @@
+-- stg_ohlcv_historical: type-cast REST-sourced historical OHLCV; 1:1 with source
